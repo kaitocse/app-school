@@ -107,4 +107,39 @@ router.post('/search', async (req, res) => {
   }
 });
 
+// VULNERABLE TO NOSQL INJECTION
+// Attacker có thể bypass bằng: { "email": {"$ne": ""}, "password": {"$ne": ""} }
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const student = await studentService.loginStudent(email, password);
+    if (!student) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+    res.json({ message: 'Login successful', student });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// VULNERABLE TO NOSQL INJECTION - $where injection
+router.get('/unsafe-search', async (req, res) => {
+  try {
+    const students = await studentService.unsafeSearch(req.query.term);
+    res.json(students);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// VULNERABLE TO NOSQL INJECTION - Regex injection
+router.get('/search-pattern', async (req, res) => {
+  try {
+    const students = await studentService.searchByPattern(req.query.pattern);
+    res.json(students);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 module.exports = router;

@@ -13,6 +13,7 @@ class StudentService {
     const student = new Student({
       name: data.name,
       email: data.email,
+      password: data.password,
       age: data.age,
       grade: data.grade,
       subjects: data.subjects || []
@@ -69,6 +70,33 @@ class StudentService {
   // VULNERABLE: CVE-2023-3696
   async searchStudents(query) {
     return await Student.find(query);
+  }
+
+  // VULNERABLE TO NOSQL INJECTION
+  // Attacker có thể bypass authentication bằng cách gửi:
+  // { "email": {"$ne": ""}, "password": {"$ne": ""} }
+  // hoặc { "email": {"$gt": ""}, "password": {"$gt": ""} }
+  async loginStudent(email, password) {
+    // VULNERABLE: Truyền trực tiếp user input vào query mà không sanitize
+    return await Student.findOne({ email: email, password: password });
+  }
+
+  // VULNERABLE TO NOSQL INJECTION với $where operator
+  // Attacker có thể inject JavaScript code
+  // Ví dụ: searchTerm = "'; return true; var a='"
+  async unsafeSearch(searchTerm) {
+    // VULNERABLE: Sử dụng $where với user input
+    return await Student.find({
+      $where: `this.name.includes('${searchTerm}')`
+    });
+  }
+
+  // VULNERABLE TO NOSQL INJECTION với regex
+  // Attacker có thể gây ReDoS hoặc extract data
+  // Ví dụ: pattern = ".*" hoặc pattern = {"$regex": "^a", "$options": "i"}
+  async searchByPattern(pattern) {
+    // VULNERABLE: Truyền trực tiếp pattern vào regex query
+    return await Student.find({ name: { $regex: pattern } });
   }
 }
 

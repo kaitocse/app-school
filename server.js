@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const path = require('path');
 const studentRoutes = require('./routes/studentRoutes');
 
 const app = express();
@@ -10,6 +11,9 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/school
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
 app.use('/api/students', studentRoutes);

