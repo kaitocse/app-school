@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Teachers - Teacher Portal</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .permission-tag {
+      display: inline-block;
+      padding: 3px 8px;
+      margin: 2px;
+      border-radius: 4px;
+      font-size: 11px;
+      background: #667eea;
+      color: white;
+    }
+    .role-admin { background: #e74c3c; color: white; }
+    .role-head_teacher { background: #f39c12; color: white; }
+    .role-teacher { background: #27ae60; color: white; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="logo">Teacher Portal</div>
+    <div class="nav-links">
+      <a href="/teacher-dashboard.html">Dashboard</a>
+      <a href="/teacher-students.html">Manage Students</a>
+      <a href="/teacher-manage.html">Manage Teachers</a>
+      <a href="/teacher-login.html" onclick="logout()">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <div class="card-header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Teacher Management (Admin Only)</span>
+          <button class="btn btn-primary" onclick="openAddModal()" id="btn-add">Add Teacher</button>
+        </div>
+      </div>
+
+      <div id="access-check"></div>
+      <div id="alert-container"></div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Subject</th>
+              <th>Role</th>
+              <th>Permissions</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="teachers-table">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="teacher-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Teacher</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="teacher-form">
+        <input type="hidden" id="teacher-id">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="form-name" required>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="form-email" required>
+        </div>
+        <div class="form-group" id="password-group">
+          <label>Password</label>
+          <input type="password" id="form-password">
+        </div>
+        <div class="form-group">
+          <label>Subject</label>
+          <select id="form-subject">
+            <option value="">Select Subject</option>
+            <option value="Math">Math</option>
+            <option value="Physics">Physics</option>
+            <option value="Chemistry">Chemistry</option>
+            <option value="Biology">Biology</option>
+            <option value="Literature">Literature</option>
+            <option value="History">History</option>
+            <option value="Geography">Geography</option>
+            <option value="English">English</option>
+            <option value="IT">IT</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select id="form-role">
+            <option value="teacher">Teacher</option>
+            <option value="head_teacher">Head Teacher</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Permissions</label>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <label><input type="checkbox" name="permissions" value="view_students"> View Students</label>
+            <label><input type="checkbox" name="permissions" value="edit_students"> Edit Students</label>
+            <label><input type="checkbox" name="permissions" value="delete_students"> Delete Students</label>
+            <label><input type="checkbox" name="permissions" value="manage_grades"> Manage Grades</label>
+            <label><input type="checkbox" name="permissions" value="manage_teachers"> Manage Teachers</label>
+            <label><input type="checkbox" name="permissions" value="full_access"> Full Access</label>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let canManage = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      checkAuth();
+      checkPermissions();
+      loadTeachers();
+    });
+
+    function checkAuth() {
+      const teacher = localStorage.getItem('teacher');
+      if (!teacher) {
+        window.location.href = '/teacher-login.html';
+      }
+    }
+
+    function checkPermissions() {
+      const permissions = JSON.parse(localStorage.getItem('permissions') || '[]');
+      const role = localStorage.getItem('role') || 'teacher';
+      
+      canManage = role === 'admin' || permissions.includes('manage_teachers') || permissions.includes('full_access');
+
+      if (!canManage) {
+        document.getElementById('access-check').innerHTML = 
+          '<div class="alert alert-danger">Access Denied: You need admin role or manage_teachers permission</div>';
+        document.getElementById('btn-add').style.display = 'none';
+      }
+    }
+
+    async function loadTeachers() {
+      try {
+        const teachers = await fetchAPI('/api/teachers');
+        const tbody = document.getElementById('teachers-table');
+        tbody.innerHTML = teachers.map(t => `
+          <tr>
+            <td>${t.name}</td>
+            <td>${t.email}</td>
+            <td>${t.subject || '-'}</td>
+            <td><span class="badge role-${t.role}">${t.role}</span></td>
+            <td>${(t.permissions || []).map(p => `<span class="permission-tag">${p}</span>`).join('')}</td>
+            <td class="actions">
+              ${canManage ? `
+                <button class="btn btn-success" onclick="editTeacher('${t._id}')">Edit</button>
+                <button class="btn btn-danger" onclick="deleteTeacher('${t._id}')">Delete</button>
+              ` : '<span style="color:#888">No access</span>'}
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        showAlert('Error loading teachers', 'danger');
+      }
+    }
+
+    function openAddModal() {
+      if (!canManage) {
+        showAlert('Access Denied', 'danger');
+        return;
+      }
+      document.getElementById('modal-title').textContent = 'Add Teacher';
+      document.getElementById('teacher-id').value = '';
+      document.getElementById('teacher-form').reset();
+      document.getElementById('password-group').style.display = 'block';
+      document.getElementById('form-password').required = true;
+      document.getElementById('teacher-modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('teacher-modal').classList.remove('active');
+    }
+
+    async function editTeacher(id) {
+      if (!canManage) {
+        showAlert('Access Denied', 'danger');
+        return;
+      }
+      try {
+        const teacher = await fetchAPI(`/api/teachers/${id}`);
+        document.getElementById('modal-title').textContent = 'Edit Teacher';
+        document.getElementById('teacher-id').value = id;
+        document.getElementById('form-name').value = teacher.name;
+        document.getElementById('form-email').value = teacher.email;
+        document.getElementById('form-password').value = '';
+        document.getElementById('form-password').required = false;
+        document.getElementById('password-group').style.display = 'none';
+        document.getElementById('form-subject').value = teacher.subject || '';
+        document.getElementById('form-role').value = teacher.role || 'teacher';
+        
+        // Set permissions checkboxes
+        document.querySelectorAll('input[name="permissions"]').forEach(cb => {
+          cb.checked = (teacher.permissions || []).includes(cb.value);
+        });
+        
+        document.getElementById('teacher-modal').classList.add('active');
+      } catch (err) {
+        showAlert('Error loading teacher', 'danger');
+      }
+    }
+
+    async function deleteTeacher(id) {
+      if (!canManage) {
+        showAlert('Access Denied', 'danger');
+        return;
+      }
+      if (!confirm('Are you sure you want to delete this teacher?')) return;
+      try {
+        await fetchAPI(`/api/teachers/${id}`, 'DELETE');
+        showAlert('Teacher deleted', 'success');
+        loadTeachers();
+      } catch (err) {
+        showAlert('Error deleting teacher', 'danger');
+      }
+    }
+
+    document.getElementById('teacher-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!canManage) {
+        showAlert('Access Denied', 'danger');
+        return;
+      }
+
+      const id = document.getElementById('teacher-id').value;
+      const permissions = Array.from(document.querySelectorAll('input[name="permissions"]:checked'))
+        .map(cb => cb.value);
+
+      const data = {
+        name: document.getElementById('form-name').value,
+        email: document.getElementById('form-email').value,
+        subject: document.getElementById('form-subject').value || undefined,
+        role: document.getElementById('form-role').value,
+        permissions: permissions
+      };
+
+      const password = document.getElementById('form-password').value;
+      if (password) data.password = password;
+
+      try {
+        if (id) {
+          await fetchAPI(`/api/teachers/${id}`, 'PUT', data);
+          showAlert('Teacher updated', 'success');
+        } else {
+          await fetchAPI('/api/teachers', 'POST', data);
+          showAlert('Teacher added', 'success');
+        }
+        closeModal();
+        loadTeachers();
+      } catch (err) {
+        showAlert('Error: ' + err.message, 'danger');
+      }
+    });
+
+    function showAlert(message, type) {
+      document.getElementById('alert-container').innerHTML = 
+        `<div class="alert alert-${type}">${message}</div>`;
+      setTimeout(() => document.getElementById('alert-container').innerHTML = '', 3000);
+    }
+
+    function logout() {
+      localStorage.removeItem('teacher');
+      localStorage.removeItem('permissions');
+      localStorage.removeItem('role');
+    }
+  </script>
+</body>
+</html>

